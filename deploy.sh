@@ -36,12 +36,12 @@ apt upgrade -y
 apt install -y curl wget git build-essential libssl-dev libffi-dev python3-dev python3-pip python3-venv
 
 # ============================================
-# PASO 2: Instalar Python 3.11
+# PASO 2: Instalar Python 3.12
 # ============================================
-log_info "Paso 2: Instalando Python 3.11..."
-apt install -y python3.11 python3.11-venv python3.11-dev
-update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1
-update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
+log_info "Paso 2: Verificando Python 3.12 (incluido en Ubuntu 24.04)..."
+apt install -y python3.12 python3.12-venv python3.12-dev
+update-alternatives --install /usr/bin/python python /usr/bin/python3.12 1
+update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.12 1
 
 # ============================================
 # PASO 3: Instalar y configurar PostgreSQL
@@ -93,7 +93,7 @@ log_error "git clone https://github.com/TU_USUARIO/PROYECTP.git ."
 # PASO 6: Crear ambiente virtual
 # ============================================
 log_info "Paso 6: Creando ambiente virtual..."
-python3.11 -m venv venv
+python3.12 -m venv venv
 source venv/bin/activate
 
 # ============================================
