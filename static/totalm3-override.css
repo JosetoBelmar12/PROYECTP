@@ -1,0 +1,11 @@
+/* Forzar visibilidad y color del campo total m3 */
+#reportTotalM3 {
+  background: #fff !important;
+  color: #222 !important;
+  font-weight: bold;
+  border: 2px solid #007bff;
+  box-shadow: 0 0 4px #007bff33;
+}
+#reportTotalM3[readonly] {
+  opacity: 1 !important;
+}

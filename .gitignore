@@ -1,0 +1,49 @@
+# Ignorar archivos de Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Entorno virtual
+.venv/
+venv/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Archivos de base de datos local
+*.db
+*.sqlite
+*.sqlite3
+data.db
+
+# Archivos de logs
+*.log
+server.log
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# Archivos de configuración local
+.env
+.env.local
+
+# pytest
+.pytest_cache/
+
+# alembic
+versions/
+
+# Otros
+*.tmp
+.coverage
+htmlcov/

@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reportes de Producción - Áridos</title>
+    <link rel="stylesheet" href="/static/style.css?v=100">
+    <link rel="stylesheet" href="/static/totalm3-override.css">
+    <!-- Cargar jsPDF en el HEAD para asegurar disponibilidad global -->
+    <script src="/static/jspdf.umd.min.js"></script>
+    <script>
+        // Esperar a que jsPDF esté disponible
+        let jsPDFReady = false;
+        let jsPDFTries = 0;
+        const checkJsPDF = () => {
+            if (window.jsPDF || (window.jspdf && window.jspdf.jsPDF)) {
+                jsPDFReady = true;
+                console.log('✓ jsPDF cargado correctamente');
+            } else if (jsPDFTries < 20) {
+                jsPDFTries++;
+                setTimeout(checkJsPDF, 100);
+            }
+        };
+        checkJsPDF();
+    </script>
+</head>
+<body>
+    <div class="container">
+        <!-- Pantalla de Login -->
+        <div id="loginScreen" class="screen active">
+            <div class="card">
+                <h1>Reportes de Producción</h1>
+                <p class="subtitle">Sistema de Áridos</p>
+                
+                <form id="loginForm" onsubmit="handleLogin(event); return false;">
+                    <div class="form-group">
+                        <label for="loginUsername">Usuario:</label>
+                        <input type="text" id="loginUsername" name="username" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="loginPassword">Contraseña:</label>
+                        <input type="password" id="loginPassword" name="password" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Ingresar</button>
+                    <button type="button" class="btn btn-secondary" onclick="toggleRegisterForm()">Crear usuario</button>
+                </form>
+                
+                <div id="registerForm" class="hidden">
+                    <hr>
+                    <h3>Nuevo Usuario</h3>
+                    <form id="createUserForm">
+                        <div class="form-group">
+                            <label for="regUsername">Usuario:</label>
+                            <input type="text" id="regUsername" name="username" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="regPassword">Contraseña:</label>
+                            <input type="password" id="regPassword" name="password" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Crear</button>
+                        <button type="button" class="btn btn-secondary" onclick="toggleRegisterForm()">Cancelar</button>
+                    </form>
+                </div>
+                
+                <div id="loginError" class="alert alert-error hidden"></div>
+            </div>
+        </div>
+
+        <!-- Pantalla Principal (Home) -->
+        <div id="homeScreen" class="screen">
+            <div class="header">
+                <div>
+                    <h1>Reportes de Producción</h1>
+                </div>
+                <div class="user-info">
+                    <div id="userDetails" style="text-align: right; margin-right: 20px; font-size: 0.9em;">
+                        <div id="currentUser" style="color: #666;"></div>
+                        <div id="currentRole" style="color: #999; font-size: 0.85em;"></div>
+                    </div>
+                    <button class="btn btn-small" onclick="logout()">🚪 Salir</button>
+                </div>
+            </div>
+            <div class="tabs">
+                <button class="tab-btn" onclick="switchTab('new-report', event)">📝 Nuevo Reporte</button>
+                <button class="tab-btn" onclick="switchTab('list-reports', event)">📋 Ver Reportes</button>
+                <button class="tab-btn" onclick="switchTab('bono-produccion', event)">💰 Bono Producción</button>
+                <button class="tab-btn" onclick="switchTab('bonos-guardados', event)">📥 Bonos Guardados</button>
+                <button class="tab-btn" onclick="switchTab('masters', event)">🗂️ Maestros</button>
+                <button class="tab-btn" onclick="switchTab('usuarios', event)">👥 Usuarios</button>
+            </div>
+
+            <div id="new-report" class="tab-content">
+                <div class="card">
+                    <h2>Registrar Nuevo Reporte</h2>
+                    <form id="reportForm">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="reportDate">Fecha:</label>
+                                <input type="date" id="reportDate" name="date" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="reportPlant">Planta:</label>
+                                <select id="reportPlant" name="plant_id">
+                                    <option value="">-- Seleccionar --</option>
+                                </select>
+                                <small><a href="#" onclick="switchTab('masters')">+ Agregar planta</a></small>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="reportHorometerStart">Horómetro Inicio:</label>
+                                <input type="number" id="reportHorometerStart" name="horometer_start" step="0.1">
+                                <button class="btn btn-small" type="button" id="fillLastHorometerBtn">Obtener último horómetro</button>
+                            </div>
+                            <div class="form-group">
+                                <label for="reportHorometerEnd">Horómetro Final:</label>
+                                <input type="number" id="reportHorometerEnd" name="horometer_end" step="0.1">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Camión(es) que trabajó(aron):</label>
+                                <div id="reportTrucks" class="checkbox-group" style="border: 1px solid #ddd; padding: 10px; border-radius: 4px; background: #f9f9f9; max-height: 150px; overflow-y: auto;"></div>
+                            </div>
+                            <div class="form-group">
+                                <label>Maquinaria utilizada:</label>
+                                <div id="reportMachinery" class="checkbox-group" style="border: 1px solid #ddd; padding: 10px; border-radius: 4px; background: #f9f9f9; max-height: 150px; overflow-y: auto;"></div>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group full">
+                                <label for="reportOperator">Operador responsable:</label>
+                                <select id="reportOperator" name="operator_id">
+                                    <option value="">-- Seleccionar --</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group full">
+                                <label>Producción por material (m³):</label>
+                                <table id="materialsTable" class="materials-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Material</th>
+                                            <th>m³</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                                <button type="button" class="btn btn-secondary" id="addMaterialRowBtn" onclick="window.addMaterialRow()">+ Agregar Material</button>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="reportTotalM3">Total Producción (m³):</label>
+                                <input type="number" id="reportTotalM3" name="total_m3" readonly step="0.1">
+                            </div>
+                            <div id="debugTotalM3" style="color: #999; font-size: 0.9em;"></div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="reportDowntime">Tiempo Inactivo (min):</label>
+                                <input type="number" id="reportDowntime" name="downtime_min" min="0" step="1">
+                            </div>
+                        </div>
+
+                        <!-- Sección Mantención de Planta - INTEGRADA -->
+                        <hr style="margin: 20px 0;">
+                        <div class="form-row">
+                            <h3>Registrar Mantención de Planta</h3>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Planta (auto-seleccionada):</label>
+                                <div id="nrSelectedPlant" style="padding: 10px; background: #f5f6fb; border: 1px solid #dfe4ee; border-radius: 4px; font-weight: 500;">--</div>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group full">
+                                <label>Repuestos utilizados:</label>
+                                <table id="sparepartsTable" class="materials-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Repuesto</th>
+                                            <th>Cantidad</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                                <button type="button" class="btn btn-secondary" id="addSparePartRowBtn" onclick="window.addSparePartRow()">+ Agregar Repuesto</button>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group full">
+                                <label for="nrMaintenanceDetails">Mantenciones Realizadas:</label>
+                                <textarea id="nrMaintenanceDetails" rows="3" placeholder="Ej: Cambio aceite; Revisión frenos"></textarea>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group full">
+                                <label for="nrMaintenanceNotes">Notas:</label>
+                                <input type="text" id="nrMaintenanceNotes" placeholder="Ej: Cambio filtros, ajuste válvulas">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <button type="submit" class="btn btn-primary">💾 Guardar Reporte y Mantención</button>
+                        </div>
+                        <div id="reportError" class="alert alert-error hidden"></div>
+                        <div id="reportSuccess" class="alert alert-success hidden"></div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Bono Producción Tab -->
+            <div id="bono-produccion" class="tab-content">
+                <div class="card">
+                    <h2>Bono Producción</h2>
+                    <form id="bonoProduccionForm">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="bonoMes">Mes/Período:</label>
+                                <input type="month" id="bonoMes" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="bonoPlanta">Planta:</label>
+                                <select id="bonoPlanta"></select>
+                            </div>
+                            <div class="form-group" style="align-self: flex-end;">
+                                <button type="button" class="btn btn-primary" id="bonoCalcularBtn">🔄 Calcular</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Sección de Producción Calculada -->
+                        <div id="bonoProduccionCalculada" class="card" style="background: #f5f9fc; margin: 12px 0; padding: 12px; border-radius: 8px; border-left: 4px solid #2196F3;">
+                            <h3 style="margin-top: 0;">📊 Producción del Período</h3>
+                            
+                            <!-- Horas Extra -->
+                            <div style="margin-bottom: 15px; padding: 12px; background: #fff3cd; border-radius: 4px; border-left: 3px solid #ff6b35;">
+                                <div style="display: flex; gap: 15px; align-items: center;">
+                                    <div class="form-group">
+                                        <label for="bonoHorasExtra" style="font-weight: bold; color: #333;">🕐 Producción en Horas Extra (m³):</label>
+                                        <input type="number" id="bonoHorasExtra" min="0" step="0.1" value="0" placeholder="Ej: 50" style="width: 150px;">
+                                    </div>
+                                    <button type="button" class="btn btn-primary" id="bonoAplicarHorasExtra" style="width: auto; padding: 8px 16px;">✓ Aplicar</button>
+                                </div>
+                                <small style="color: #666; display: block; margin-top: 6px;">💡 Se restará automáticamente de la producción total para el cálculo de bonos</small>
+                            </div>
+                            
+                            <div id="bonoProductionMetrics" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px;">
+                                <div style="background: #4CAF50; padding: 12px; border-radius: 4px; border-left: 3px solid #2e7d32;">
+                                    <div style="font-size: 0.9em; color: #ffffff; opacity: 0.9; margin-bottom: 4px;">Producción Total</div>
+                                    <div id="bonoTotalProduccion" style="font-size: 1.8em; font-weight: bold; color: #ffffff;">-- m³</div>
+                                </div>
+                                <div style="background: #ff6b35; padding: 12px; border-radius: 4px; border-left: 3px solid #d35400;">
+                                    <div style="font-size: 0.9em; color: #ffffff; opacity: 0.9; margin-bottom: 4px;">Horas Extra</div>
+                                    <div id="bonoTotalHorasExtra" style="font-size: 1.8em; font-weight: bold; color: #ffffff;">0 m³</div>
+                                </div>
+                                <div style="background: #2196F3; padding: 12px; border-radius: 4px; border-left: 3px solid #1565c0;">
+                                    <div style="font-size: 0.9em; color: #ffffff; opacity: 0.9; margin-bottom: 4px;">Total Final (c/Bono)</div>
+                                    <div id="bonoTotalFinal" style="font-size: 1.8em; font-weight: bold; color: #ffffff;">-- m³</div>
+                                </div>
+                            </div>
+                            <div id="bonoMaterialesDetalle" style="margin-top: 12px; max-height: 250px; overflow-y: auto;"></div>
+                        </div>
+                        
+                        <div class="form-group full">
+                            <label>Personal - Cálculo de Bonos</label>
+                            <table id="bonoTrabajadoresTabla" class="materials-table">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Nombre del Trabajador</th>
+                                        <th>Cargo</th>
+                                        <th>Precio Unitario m³ ($)</th>
+                                        <th>Total Bono ($)</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                            <button type="button" class="btn btn-secondary" id="bonoAgregarTrabajador">+ Agregar Trabajador</button>
+                        </div>
+                        
+                        <div style="display: flex; gap: 8px;">
+                            <button class="btn btn-primary" type="submit">Guardar Bono</button>
+                            <button class="btn btn-secondary" id="bonoDescargarPDF" type="button">📥 Descargar PDF</button>
+                        </div>
+                    </form>
+                    <div id="bonoProduccionResumen" class="bono-resumen"></div>
+                </div>
+            </div>
+
+                <!-- Ver Reportes Tab -->
+                <div id="list-reports" class="tab-content">
+                    <div class="card">
+                        <h2>Filtrar y Ver Reportes</h2>
+                        <div class="filters">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="filterStartDate">Fecha Inicio:</label>
+                                    <input type="date" id="filterStartDate" placeholder="Desde">
+                                </div>
+                                <div class="form-group">
+                                    <label for="filterEndDate">Fecha Fin:</label>
+                                    <input type="date" id="filterEndDate" placeholder="Hasta">
+                                </div>
+                                <div class="form-group" style="display: flex; gap: 8px; align-items: flex-end;">
+                                    <button class="btn btn-primary" onclick="applyFilters()">🔍 Filtrar</button>
+                                    <button class="btn btn-secondary" onclick="clearFilters()">🔄 Limpiar</button>
+                                    <button class="btn btn-secondary" onclick="loadReports()">🔁 Recargar</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="reportsCount" style="margin: 8px 0; font-size: 0.9em; color: #666; min-height: 20px;"></div>
+                        <div id="reportsList" class="reports-list">
+                            <p class="loading">Cargando reportes...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Maestros Tab -->
+                <div id="masters" class="tab-content">
+                    <div class="card">
+                        <h2>Catálogos / Maestros</h2>
+                        <!-- Plantas -->
+                        <div class="master-section">
+                            <h3>Plantas</h3>
+                            <div class="form-row">
+                                <input type="text" id="newPlantName" placeholder="Nombre de planta">
+                                <input type="text" id="newPlantDesc" placeholder="Descripción (opcional)">
+                                <select id="newPlantTipo">
+                                    <option value="">Tipo de planta</option>
+                                    <option value="primaria">Primaria</option>
+                                    <option value="gravillera">Gravillera</option>
+                                    <option value="movil">Móvil</option>
+                                    <option value="otra">Otra</option>
+                                </select>
+                                <label style="display:flex;align-items:center;gap:4px;font-size:0.95em;margin-top:8px;">
+                                    <input type="checkbox" id="newPlantEsResta"> ¿Restar producción de esta planta?
+                                </label>
+                                <button class="btn btn-primary" onclick="addPlant()">Agregar</button>
+                            </div>
+                            <div id="plantsList" class="items-list"></div>
+                        </div>
+                        <!-- Maquinarias -->
+                        <div class="master-section">
+                            <h3>Maquinarias</h3>
+                            <div class="form-row">
+                                <input type="text" id="newMachineryName" placeholder="Nombre de maquinaria">
+                                <input type="text" id="newMachineryDesc" placeholder="Descripción (opcional)">
+                                <button class="btn btn-primary" onclick="addMachinery()">Agregar</button>
+                            </div>
+                            <div id="machineryList" class="items-list"></div>
+                        </div>
+                        <!-- Camiones -->
+                        <div class="master-section">
+                            <h3>Camiones</h3>
+                            <div class="form-row">
+                                <input type="text" id="newTruckName" placeholder="Nombre de camión">
+                                <input type="text" id="newTruckPlate" placeholder="Patente (opcional)">
+                                <input type="text" id="newTruckDesc" placeholder="Descripción (opcional)">
+                                <button class="btn btn-primary" onclick="addTruck()">Agregar</button>
+                            </div>
+                            <div id="trucksList" class="items-list"></div>
+                        </div>
+                        <!-- Operadores -->
+                        <div class="master-section">
+                            <h3>Operadores</h3>
+                            <div class="form-row">
+                                <input type="text" id="newOperatorName" placeholder="Nombre de operador">
+                                <input type="text" id="newOperatorDesc" placeholder="Descripción (opcional)">
+                                <button class="btn btn-primary" onclick="addOperator()">Agregar</button>
+                            </div>
+                            <div id="operatorsList" class="items-list"></div>
+                        </div>
+                        <!-- Materiales -->
+                        <div class="master-section">
+                            <h3>Materiales</h3>
+                            <div class="form-row">
+                                <input type="text" id="newMaterialName" placeholder="Nombre de material">
+                                <button class="btn btn-primary" onclick="addMaterial()">Agregar</button>
+                            </div>
+                            <div id="materialsList" class="items-list"></div>
+                        </div>
+                        <!-- Repuestos -->
+                        <div class="master-section">
+                            <h3>Repuestos</h3>
+                            <div class="form-row">
+                                <input type="text" id="newSparePartName" placeholder="Nombre de repuesto">
+                                <input type="text" id="newSparePartCode" placeholder="Código (opcional)">
+                                <input type="text" id="newSparePartDesc" placeholder="Descripción (opcional)">
+                                <button class="btn btn-primary" onclick="addSparePart()">Agregar</button>
+                            </div>
+                            <div id="sparePartsList" class="items-list"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Usuarios Tab (solo admin) -->
+                <div id="usuarios" class="tab-content">
+                    <div class="card">
+                        <h2>Gestionar Usuarios</h2>
+                        <p>Cambiar roles y resetear contraseñas de usuarios.</p>
+                        
+                        <div class="form-row">
+                            <button class="btn btn-primary" id="usuariosRefreshBtn" onclick="loadUsuarios()">🔄 Actualizar Lista</button>
+                        </div>
+
+                        <table id="usuariosTabla" class="materials-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Usuario</th>
+                                    <th>Rol Actual</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+
+                        <div id="usuariosError" class="alert alert-error hidden"></div>
+                        <div id="usuariosSuccess" class="alert alert-success hidden"></div>
+                    </div>
+
+                    <!-- Modal para cambiar rol -->
+                    <div id="cambiarRolModal" class="modal-overlay" style="display:none;">
+                        <div class="modal-content">
+                            <h3>Cambiar Rol de Usuario</h3>
+                            <div id="modalUsuarioInfo" style="margin-bottom:15px; padding: 10px; background: #f5f5f5; border-radius: 4px;"></div>
+                            <div class="form-group" style="margin-bottom: 15px;">
+                                <label for="modalRolSelect">Nuevo Rol:</label>
+                                <select id="modalRolSelect">
+                                    <option value="registrador">📝 Registrador</option>
+                                    <option value="admin">👤 Administrador</option>
+                                </select>
+                            </div>
+                            <div style="text-align:right;">
+                                <button class="btn btn-secondary" onclick="closeCambiarRolModal()">Cancelar</button>
+                                <button class="btn btn-primary" id="modalRolGuardarBtn">Guardar Cambios</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Modal para resetear contraseña -->
+                    <div id="resetPasswordModal" class="modal-overlay" style="display:none;">
+                        <div class="modal-content">
+                            <h3>Resetear Contraseña</h3>
+                            <div id="modalPasswordUsuarioInfo" style="margin-bottom:15px; padding: 10px; background: #f5f5f5; border-radius: 4px;"></div>
+                            <p style="color: #666; font-size: 0.9em; margin-bottom: 10px;">Se generará una contraseña temporal de 8 caracteres.</p>
+                            <div id="passwordResultBox" style="display:none; margin-bottom: 15px; padding: 12px; background: #e8f5e9; border-radius: 4px; border-left: 4px solid #4CAF50;">
+                                <div style="font-weight: bold; margin-bottom: 8px;">✅ Contraseña temporal generada:</div>
+                                <div id="newPasswordDisplay" style="font-family: monospace; background: white; padding: 8px; border-radius: 3px; border: 1px solid #4CAF50; word-break: break-all; margin-bottom: 8px;"></div>
+                                <small style="color: #666;">Comparta esta contraseña temporal con el usuario para que la cambie en su primer acceso.</small>
+                            </div>
+                            <div style="text-align:right;">
+                                <button class="btn btn-secondary" onclick="closeResetPasswordModal()">Cancelar</button>
+                                <button class="btn btn-primary" id="modalResetPasswordBtn">Generar Contraseña Temporal</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bonos Guardados Tab -->
+                <div id="bonos-guardados" class="tab-content">
+                    <div class="card">
+                        <h2>📥 Bonos de Producción Guardados</h2>
+                        <div style="margin-bottom: 15px;">
+                            <label for="bonosGuardadosMes">Filtrar por mes:</label>
+                            <input type="month" id="bonosGuardadosMes" style="padding: 8px;">
+                            <button class="btn btn-small" onclick="listarBonosGuardados()">🔄 Actualizar</button>
+                        </div>
+                        <div id="bonosGuardadosLista" style="margin-top: 20px;"></div>
+                    </div>
+                </div>
+
+                <!-- Mantenciones removed from Maestros: moved to Nuevo Reporte -->
+            </div>
+        </div>
+    </div>
+
+    <!-- jsPDF ya cargado en HEAD, solo cargar app.js -->
+    <script src="/static/app-minimal.js?v=112"></script>
+    
+    <!-- Asegurar que jsPDF esté disponible -->
+    <script>
+        // Expone jsPDF globalmente si exists en cualquier namespace
+        setTimeout(() => {
+            console.log('[INIT] Verificando jsPDF...');
+            if (!window.jsPDF) {
+                if (window.jspdf && window.jspdf.jsPDF) {
+                    window.jsPDF = window.jspdf.jsPDF;
+                    console.log('[INIT] ✓ jsPDF expuesto desde window.jspdf.jsPDF');
+                } else {
+                    console.error('[INIT] ❌ jsPDF no encontrado en ningún namespace');
+                    console.warn('[INIT] Namespaces disponibles:', Object.keys(window).filter(k => k.toLowerCase().includes('pdf')));
+                }
+            } else {
+                console.log('[INIT] ✓ jsPDF ya disponible en window.jsPDF');
+            }
+        }, 500);
+    </script>
+</body>
+</html>

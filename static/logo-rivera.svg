@@ -1,0 +1,13 @@
+<svg viewBox="0 0 600 150" xmlns="http://www.w3.org/2000/svg">
+  <!-- Fondo blanco -->
+  <rect width="600" height="150" fill="white"/>
+  
+  <!-- Texto "EMPRESAS" -->
+  <text x="300" y="50" font-size="48" font-weight="bold" font-family="Arial, sans-serif" fill="#000080" text-anchor="middle">EMPRESAS</text>
+  
+  <!-- Texto "RIVERA" en estilo especial -->
+  <text x="300" y="95" font-size="56" font-weight="300" font-family="Arial, sans-serif" fill="#000080" text-anchor="middle" letter-spacing="8">RIVERA</text>
+  
+  <!-- Subtítulo -->
+  <text x="300" y="135" font-size="12" font-weight="normal" font-family="Arial, sans-serif" fill="#000080" text-anchor="middle" letter-spacing="2">TRANSPORTES - INGENIERÍA - CONSTRUCCIÓN</text>
+</svg>
