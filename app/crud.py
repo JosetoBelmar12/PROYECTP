@@ -1,4 +1,11 @@
-from .models import Material
+from datetime import datetime
+from typing import List, Optional
+from sqlmodel import Session, select
+
+from .database import engine
+from .models import Material, Report, User, Plant, Machinery, Truck, Operator, SparePart, Maintenance
+
+
 # ========== MATERIALES ========== 
 def create_material(name: str) -> Material:
     with Session(engine) as session:
@@ -25,13 +32,6 @@ def delete_material(material_id: int) -> bool:
         session.delete(mat)
         session.commit()
     return True
-from sqlmodel import Session, select
-from typing import List, Optional
-
-from .models import Report, User, Plant, Machinery, Truck, Operator, SparePart
-from .database import engine
-from .models import Maintenance
-from datetime import datetime
 
 
 def create_user(username: str, hashed_password: str) -> User:
